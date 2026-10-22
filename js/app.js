@@ -5114,7 +5114,7 @@
       const lblEl = this._id('scale-label-text');
       const barEl = this._id('scale-ruler-bar');
       if (!lblEl || !barEl || !this.svg) return;
-      const rect = (this.dragState && this.dragState.rect) || this.svg.getBoundingClientRect();
+      const rect = this._svgViewportRect();
       const rw = rect.width || 1000;
       const rh = rect.height || 700;
       const screenScale = Math.min(rw / this.camera.w, rh / this.camera.h);
@@ -5139,8 +5139,12 @@
         }
       }
       const barPx = Math.max(44, Math.min(150, Math.round(bestKm / kmPerCssPx)));
-      barEl.style.width = `${barPx}px`;
-      lblEl.textContent = `${bestKm} km`;
+      // Write only on change: unconditional writes restart the width
+      // transition and keep the layout permanently dirty during pan/zoom.
+      const barPxStr = `${barPx}px`;
+      if (barEl.style.width !== barPxStr) barEl.style.width = barPxStr;
+      const label = `${bestKm} km`;
+      if (lblEl.textContent !== label) lblEl.textContent = label;
     }
 
     _isMobileViewport() {
@@ -5299,11 +5303,7 @@
 
       // Keep active person numbered pins crisp & non-overlapping in real screen pixels at every zoom level
       if (this.activePerson && this.grpJourney) {
-        const svgRect =
-          (this.dragState && this.dragState.rect) ||
-          (typeof this.svg.getBoundingClientRect === 'function'
-            ? this.svg.getBoundingClientRect()
-            : null);
+        const svgRect = this._svgViewportRect();
         const rw = (svgRect && svgRect.width) || vw || 1000;
         const rh = (svgRect && svgRect.height) || rw * 0.7;
         const screenScale = Math.min(rw / this.camera.w, rh / this.camera.h);
@@ -6138,8 +6138,35 @@
       });
     }
 
+    // The SVG's CSS box only changes on window resize / pane toggles, never on
+    // pan or zoom (viewBox changes do not move the svg element itself). Reading
+    // getBoundingClientRect() while viewBox writes keep the document dirty forces
+    // a synchronous full-SVG re-layout on every wheel event, so serve a cached
+    // rect and invalidate it via ResizeObserver instead.
+    _svgViewportRect() {
+      if (this._svgBoxRect) return this._svgBoxRect;
+      this._svgBoxRect = this.svg.getBoundingClientRect();
+      if (!this._svgBoxObserver && typeof ResizeObserver === 'function') {
+        this._svgBoxObserver = new ResizeObserver(() => {
+          this._svgBoxRect = null;
+        });
+        this._svgBoxObserver.observe(this.svg);
+        // Size changes are covered by ResizeObserver; scrolling changes the
+        // rect's viewport-relative left/top without changing its size, so
+        // invalidate on any scroll as well (capture reaches inner containers).
+        window.addEventListener(
+          'scroll',
+          () => {
+            this._svgBoxRect = null;
+          },
+          { passive: true, capture: true }
+        );
+      }
+      return this._svgBoxRect;
+    }
+
     _clientToSvgPoint(clientX, clientY) {
-      const rect = this.svg.getBoundingClientRect();
+      const rect = this._svgViewportRect();
       const scale = Math.min(rect.width / this.camera.w, rect.height / this.camera.h);
       const padX = (rect.width - this.camera.w * scale) * 0.5;
       const padY = (rect.height - this.camera.h * scale) * 0.5;

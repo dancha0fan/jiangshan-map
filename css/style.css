@@ -2981,7 +2981,8 @@ html[lang="en"] .genealogy-list li {
   border-left: 1.6px solid var(--text-secondary);
   border-right: 1.6px solid var(--text-secondary);
   filter: drop-shadow(0 0 2px rgba(246, 241, 230, 0.9));
-  transition: width 0.12s ease-out;
+  /* width transition removed: it restarts on every zoom step and forces a
+     full-document layout (incl. the SVG) on every animation frame */
 }
 
 /* #6 Collapsible Chronicle Sidebar / Full-Map Mode */
