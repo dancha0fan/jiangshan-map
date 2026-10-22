@@ -948,7 +948,7 @@
       if (ghBtn) {
         ghBtn.title =
           this.locale === 'en'
-            ? 'Star DeanChensj/jiangshan-map on GitHub'
+            ? 'Star dancha0fan/jiangshan-map on GitHub'
             : '在 GitHub 上为「江山时序」点亮 Star';
       }
       this._updateMusicUi();
